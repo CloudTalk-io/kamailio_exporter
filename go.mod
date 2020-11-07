@@ -1,9 +1,11 @@
 module github.com/florentchauveau/kamailio_exporter
 
 require (
+	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/florentchauveau/go-kamailio-binrpc/v3 v3.1.0
 	github.com/google/go-cmp v0.5.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.8.0

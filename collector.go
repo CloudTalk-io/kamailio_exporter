@@ -542,7 +542,7 @@ func parseDispatcherTargets(items []binrpc.StructItem) ([]DispatcherTarget, erro
 							case "FLAGS":
 								target.Flags, _ = prop.Value.String()
                             case "PRIORITY":
-								target.Priority, _ = prop.Value.String()
+								target.Priority, _ = prop.Value.Int()
 							}
 						}
 
