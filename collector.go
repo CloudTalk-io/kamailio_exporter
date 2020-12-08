@@ -122,7 +122,7 @@ type DispatcherTarget struct {
 	URI   string
 	Flags string
 	SetID int
-    Priority int
+	Priority int
 }
 
 const (
@@ -470,7 +470,7 @@ func (c *Collector) scrapeMethod(method string) (map[string][]MetricValue, error
 					"uri":   target.URI,
 					"flags": target.Flags,
 					"setid": strconv.Itoa(target.SetID),
-                    "priority": strconv.Itoa(target.Priority),
+					"priority": strconv.Itoa(target.Priority),
 				},
 			}
 
@@ -541,7 +541,7 @@ func parseDispatcherTargets(items []binrpc.StructItem) ([]DispatcherTarget, erro
 								target.URI, _ = prop.Value.String()
 							case "FLAGS":
 								target.Flags, _ = prop.Value.String()
-                            case "PRIORITY":
+							case "PRIORITY":
 								target.Priority, _ = prop.Value.Int()
 							}
 						}
