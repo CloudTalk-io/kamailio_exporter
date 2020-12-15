@@ -507,7 +507,7 @@ func parseUsrlocStats(records []binrpc.Record) ([]binrpc.Record, error) {
 
 		key := strings.ReplaceAll(strings.ReplaceAll(splitValues[0], "usrloc:", ""), "-", "_")
 
-		metricValue, err := strconv.ParseFloat(splitValues[1], 64)
+		metricValue, err := strconv.ParseInt(splitValues[1], 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("error parsing usrloc records: %v", err)
 		}
@@ -515,8 +515,8 @@ func parseUsrlocStats(records []binrpc.Record) ([]binrpc.Record, error) {
 		newRecords = append(newRecords, binrpc.StructItem{
 			Key: key,
 			Value: binrpc.Record{
-				Type:  binrpc.TypeDouble,
-				Value: metricValue,
+				Type:  binrpc.TypeInt,
+				Value: int(metricValue),
 			},
 		})
 	}
