@@ -362,7 +362,9 @@ func (c *Collector) scrape(ch chan<- prometheus.Metric) error {
 		return err
 	}
 
-	c.conn.SetDeadline(time.Now().Add(c.Timeout))
+	if err = c.conn.SetDeadline(time.Now().Add(c.Timeout)); err != nil {
+		return err
+	}
 
 	defer c.conn.Close()
 
@@ -617,7 +619,7 @@ func (c *Collector) fetchBINRPC(method string) ([]binrpc.Record, error) {
 
 	splitMethods := strings.Split(method, " ")
 	interfaceMethods := make([]interface{}, len(splitMethods))
-	for i, _ := range splitMethods {
+	for i := range splitMethods {
 		interfaceMethods[i] = splitMethods[i]
 	}
 	cookie, err := binrpc.WritePacket(c.conn, interfaceMethods...)
