@@ -31,13 +31,15 @@ func main() {
 
 	http.Handle(*metricsPath, promhttp.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
+		if _, err = w.Write([]byte(`<html>
 			<head><title>Kamailio Exporter</title></head>
 			<body>
 			<h1>Kamailio Exporter</h1>
 			<p><a href="` + *metricsPath + `">Metrics</a></p>
 			</body>
-			</html>`))
+			</html>`)); err != nil {
+				panic(err)
+			}
 	})
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }

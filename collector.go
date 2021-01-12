@@ -85,6 +85,11 @@ kamcmd dlg.stats_active
 	ongoing: 512
 	all: 1338
 }
+kamcmd> stats.get_statistics usrloc:
+usrloc:location-contacts = 3
+usrloc:location-expires = 2
+usrloc:location-users = 1
+usrloc:registered_users = 1
 */
 
 // Collector implements prometheus.Collector (see below).
@@ -119,9 +124,10 @@ type MetricValue struct {
 
 // DispatcherTarget is a target of the dispatcher module.
 type DispatcherTarget struct {
-	URI   string
-	Flags string
-	SetID int
+	URI      string
+	Flags    string
+	SetID    int
+	Priority int
 }
 
 const (
@@ -143,6 +149,7 @@ var (
 		"dispatcher.list",
 		"tls.info",
 		"dlg.stats_active",
+		"stats.get_statistics usrloc:",
 	}
 
 	metricsList = map[string][]Metric{
@@ -194,6 +201,12 @@ var (
 			NewMetricGauge("answering", "Dialogs answering.", "dlg.stats_active"),
 			NewMetricGauge("ongoing", "Dialogs ongoing.", "dlg.stats_active"),
 			NewMetricGauge("all", "Dialogs all.", "dlg.stats_active"),
+		},
+		"stats.get_statistics usrloc:": {
+			NewMetricGauge("location_contacts", "Number of contacts existing in the USRLOC memory cache for that domain", "stats.get_statistics usrloc:"),
+			NewMetricGauge("location_expires", "Total number of expired contacts for that domain", "stats.get_statistics usrloc:"),
+			NewMetricGauge("location_users", "Number of AOR existing in the USRLOC memory cache for that domain", "stats.get_statistics usrloc:"),
+			NewMetricGauge("registered_users", "Total number of AOR existing in the USRLOC memory cache for all domains", "stats.get_statistics usrloc:"),
 		},
 	}
 )
@@ -293,7 +306,7 @@ func (m *Metric) ExportedName() string {
 
 	return fmt.Sprintf("%s_%s_%s",
 		namespace,
-		strings.Replace(m.Method, ".", "_", -1),
+		strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(m.Method, ".", "_"), " ", "_"), ":", ""),
 		suffix,
 	)
 }
@@ -349,7 +362,9 @@ func (c *Collector) scrape(ch chan<- prometheus.Metric) error {
 		return err
 	}
 
-	c.conn.SetDeadline(time.Now().Add(c.Timeout))
+	if err = c.conn.SetDeadline(time.Now().Add(c.Timeout)); err != nil {
+		return err
+	}
 
 	defer c.conn.Close()
 
@@ -403,11 +418,15 @@ func (c *Collector) scrapeMethod(method string) (map[string][]MetricValue, error
 	if len(records) == 2 && records[0].Type == binrpc.TypeInt && records[0].Value.(int) == 500 {
 		return nil, fmt.Errorf(`invalid response for method "%s": [500] %s`, method, records[1].Value.(string))
 	} else if len(records) != 1 {
-		return nil, fmt.Errorf(`invalid response for method "%s", expected %d record, got %d`,
-			method, 1, len(records),
-		)
+		if method != "stats.get_statistics usrloc:" {
+			return nil, fmt.Errorf(`invalid response for method "%s", expected %d record, got %d`,
+				method, 1, len(records),
+			)
+		}
+		if records, err = parseUsrlocStats(records); err != nil {
+			return nil, err
+		}
 	}
-
 	// all methods implemented in this exporter return a struct
 	items, err := records[0].StructItems()
 
@@ -446,6 +465,8 @@ func (c *Collector) scrapeMethod(method string) (map[string][]MetricValue, error
 		fallthrough
 	case "dlg.stats_active":
 		fallthrough
+	case "stats.get_statistics usrloc:":
+		fallthrough
 	case "core.uptime":
 		for _, item := range items {
 			i, _ := item.Value.Int()
@@ -466,9 +487,10 @@ func (c *Collector) scrapeMethod(method string) (map[string][]MetricValue, error
 			mv := MetricValue{
 				Value: 1,
 				Labels: map[string]string{
-					"uri":   target.URI,
-					"flags": target.Flags,
-					"setid": strconv.Itoa(target.SetID),
+					"uri":      target.URI,
+					"flags":    target.Flags,
+					"setid":    strconv.Itoa(target.SetID),
+					"priority": strconv.Itoa(target.Priority),
 				},
 			}
 
@@ -477,6 +499,30 @@ func (c *Collector) scrapeMethod(method string) (map[string][]MetricValue, error
 	}
 
 	return metrics, nil
+}
+
+func parseUsrlocStats(records []binrpc.Record) ([]binrpc.Record, error) {
+	var newRecords []binrpc.StructItem
+	for _, record := range records {
+		value := record.Value.(string)
+		splitValues := strings.Split(value, " = ")
+
+		key := strings.ReplaceAll(strings.ReplaceAll(splitValues[0], "usrloc:", ""), "-", "_")
+
+		metricValue, err := strconv.ParseInt(splitValues[1], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing usrloc records: %v", err)
+		}
+
+		newRecords = append(newRecords, binrpc.StructItem{
+			Key: key,
+			Value: binrpc.Record{
+				Type:  binrpc.TypeInt,
+				Value: int(metricValue),
+			},
+		})
+	}
+	return []binrpc.Record{{Type: binrpc.TypeStruct, Value: newRecords}}, nil
 }
 
 // parseDispatcherTargets parses the "dispatcher.list" result and returns a list of targets.
@@ -539,6 +585,8 @@ func parseDispatcherTargets(items []binrpc.StructItem) ([]DispatcherTarget, erro
 								target.URI, _ = prop.Value.String()
 							case "FLAGS":
 								target.Flags, _ = prop.Value.String()
+							case "PRIORITY":
+								target.Priority, _ = prop.Value.Int()
 							}
 						}
 
@@ -568,7 +616,13 @@ func parseDispatcherTargets(items []binrpc.StructItem) ([]DispatcherTarget, erro
 // fetchBINRPC talks to kamailio using the BINRPC protocol.
 func (c *Collector) fetchBINRPC(method string) ([]binrpc.Record, error) {
 	// WritePacket returns the cookie generated
-	cookie, err := binrpc.WritePacket(c.conn, method)
+
+	splitMethods := strings.Split(method, " ")
+	interfaceMethods := make([]interface{}, len(splitMethods))
+	for i := range splitMethods {
+		interfaceMethods[i] = splitMethods[i]
+	}
+	cookie, err := binrpc.WritePacket(c.conn, interfaceMethods...)
 
 	if err != nil {
 		return nil, err
