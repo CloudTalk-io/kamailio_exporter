@@ -37,7 +37,7 @@ Flags:
   -m, --kamailio.methods="tm.stats,sl.stats,core.shmmem,core.uptime,core.tcp_info"
                              Comma-separated list of methods to call. E.g.
                              "tm.stats,sl.stats". Implemented:
-                             tm.stats,sl.stats,core.shmmem,core.uptime,core.tcp_info,dispatcher.list,tls.info,dlg.stats_active
+                             tm.stats,sl.stats,core.shmmem,core.uptime,core.tcp_info,dispatcher.list,tls.info,dlg.stats_active,stats.get_statistics usrloc:
   -t, --kamailio.timeout=5s  Timeout for trying to get stats from kamailio.
   ```
 
@@ -70,6 +70,9 @@ For [TLS]( https://kamailio.org/docs/modules/stable/modules/tls.html ) you can e
 
 #### Dialog
 For [DIALOG](http://kamailio.org/docs/modules/stable/modules/dialog.html) module, you can enable `dlg.stats_active`.
+
+#### Usrloc
+For [USRLOC](http://kamailio.org/docs/modules/stable/modules/usrloc.html) module, you can enable `stats.get_statistics usrloc:`. Note the colon at the end. Colon at the end is needed also when you are running `kamcmd` commnand.
 
 ### Example for using non-default metrics
 ```bash
@@ -157,6 +160,14 @@ List of exposed metrics:
 # TYPE kamailio_dlg_stats_active_ongoing gauge
 # HELP kamailio_dlg_stats_active_starting Dialogs starting.
 # TYPE kamailio_dlg_stats_active_starting gauge
+# HELP kamailio_stats_get_statistics_usrloc_location_contacts Number of contacts existing in the USRLOC memory cache for that domain
+# TYPE kamailio_stats_get_statistics_usrloc_location_contacts gauge
+# HELP kamailio_stats_get_statistics_usrloc_location_expires Total number of expired contacts for that domain
+# TYPE kamailio_stats_get_statistics_usrloc_location_expires gauge
+# HELP kamailio_stats_get_statistics_usrloc_location_users Number of AOR existing in the USRLOC memory cache for that domain
+# TYPE kamailio_stats_get_statistics_usrloc_location_users gauge
+# HELP kamailio_stats_get_statistics_usrloc_registered_users Total number of AOR existing in the USRLOC memory cache for all domains
+# TYPE kamailio_stats_get_statistics_usrloc_registered_users gauge
 ```
 
 ## Compiling
